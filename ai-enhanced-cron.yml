@@ -1,0 +1,87 @@
+name: AI增强趋势报告定时发送
+
+on:
+  schedule:
+    # 每天 UTC 00:00 运行 (日本时间 9:00 AM)
+    - cron: '0 0 * * *'
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  send-ai-report:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Python环境
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+        
+    - name: 安装UV包管理器
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        
+    - name: 安装依赖
+      run: |
+        uv pip install --system -r requirements.txt
+        
+    - name: 创建配置文件
+      run: |
+        mkdir -p config
+        cat > config/config.yaml << EOF
+        email:
+          smtp_server: "smtp.qq.com"
+          smtp_port: 587
+          sender_email: "${{ secrets.SENDER_EMAIL }}"
+          sender_password: "${{ secrets.SENDER_PASSWORD }}"
+          recipient_email: "${{ secrets.RECIPIENT_EMAIL }}"
+          
+        time_windows:
+          morning: "09:00"
+          evening: "22:00"
+          timezone: "Asia/Tokyo"
+          once_per_day: true
+          
+        platforms:
+          weibo:
+            enabled: true
+            hot_search_url: "https://s.weibo.com/top/summary"
+            
+          zhihu:
+            enabled: true
+            hot_list_url: "https://www.zhihu.com/hot"
+            
+          github:
+            enabled: true
+            trending_url: "https://github.com/trending"
+            
+          v2ex:
+            enabled: true
+            hot_url: "https://www.v2ex.com/?tab=hot"
+            
+        ai_analysis:
+          enabled: true
+          summary_length: 800
+          include_trends: true
+          include_insights: true
+          include_predictions: true
+          
+        logging:
+          level: "INFO"
+          file: "trendradar.log"
+        EOF
+        
+    - name: 运行AI增强报告
+      run: |
+        python send_ai_report_email.py
+        
+    - name: 上传日志文件
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: trendradar-logs
+        path: trendradar.log
+        retention-days: 7
