@@ -45,7 +45,7 @@ class SimpleAIEnhancedReporter:
                 "platforms": list(set(news.get("platform", "") for news in latest_news)),
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M")
             }
-            
+
             # 2. AI分析 - 平台对比
             print("🔍 进行平台对比分析...")
             try:
@@ -57,7 +57,7 @@ class SimpleAIEnhancedReporter:
             except Exception as e:
                 print(f"平台对比分析失败: {e}")
                 report_data["ai_insights"]["platform_comparison"] = {"success": False, "error": str(e)}
-            
+
             # 3. AI分析 - 异常热度检测
             print("🚨 检测异常热度话题...")
             try:
@@ -70,15 +70,15 @@ class SimpleAIEnhancedReporter:
             except Exception as e:
                 print(f"异常热度检测失败: {e}")
                 report_data["ai_insights"]["viral_detection"] = {"success": False, "error": str(e)}
-            
+
             # 4. 生成智能推荐
             print("💡 生成智能推荐...")
             recommendations = await self._generate_recommendations(report_data)
             report_data["recommendations"] = recommendations
-            
+
             print("✅ AI增强版报告生成完成！")
             return report_data
-            
+
         except Exception as e:
             print(f"❌ AI报告生成失败: {str(e)}")
             return {"error": str(e), "basic_report": True}
@@ -200,7 +200,7 @@ class SimpleAIEnhancedReporter:
             html_content += '<div class="insight-card"><h3>🚨 异常热度检测</h3>'
             viral_topics = viral_data.get("viral_topics", [])[:3]
             for topic in viral_topics:
-                html_content += f'<div>• <strong>{topic.get("title", "")}</strong>: 热度突增{topic.get("growth_rate", 0):.1f}倍</div>'
+                html_content += f'<div>• <strong>{topic.get("title", "")}</strong>: 热度突增{topic.get("growth_rate", 0):.1f}倍</div>'        
             html_content += '</div>'
         
         html_content += """</div>

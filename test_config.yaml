@@ -1,0 +1,19 @@
+# 测试配置文件 - 用于验证AI增强邮件发送功能
+
+email:
+  smtp_server: "smtp.qq.com"
+  smtp_port: 587
+  sender_email: "1249510763@qq.com"
+  sender_password: "nvynsqarwowkbace"  # 您的QQ邮箱授权码
+  recipient_email: "1249510763@qq.com"
+
+ai_analysis:
+  enabled: true
+  summary_length: 800
+  include_trends: true
+  include_insights: true
+  include_predictions: true
+
+logging:
+  level: "INFO"
+  file: "trendradar.log"
