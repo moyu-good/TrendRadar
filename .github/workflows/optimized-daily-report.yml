@@ -1,0 +1,119 @@
+name: 📧 优化版热点新闻推送
+
+on:
+  schedule:
+    # 日本时间每天早上9点推送 (北京时间8点)
+    - cron: '0 1 * * *'  # UTC 01:00 = 日本时间 10:00 (考虑执行时间)
+    - cron: '0 23 * * *'  # UTC 23:00 = 日本时间 8:00 (备选时间)
+  workflow_dispatch:
+
+jobs:
+  send-optimized-report:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 获取代码
+        uses: actions/checkout@v4
+
+      - name: 设置Python环境
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 验证配置文件
+        run: |
+          echo "🔍 检查配置文件..."
+          if [ ! -f config/config.yaml ]; then
+            echo "❌ config/config.yaml 不存在"
+            exit 1
+          fi
+          if [ ! -f config/frequency_words.txt ]; then
+            echo "❌ config/frequency_words.txt 不存在" 
+            exit 1
+          fi
+          echo "✅ 配置文件检查通过"
+
+      - name: 设置时间窗口配置
+        run: |
+          # 确保推送时间窗口设置正确
+          python -c "
+          import yaml
+          import os
+          
+          with open('config/config.yaml', 'r', encoding='utf-8') as f:
+              config = yaml.safe_load(f)
+          
+          # 优化推送配置
+          config['notification']['push_window']['enabled'] = True
+          config['notification']['push_window']['once_per_day'] = True
+          config['notification']['push_window']['time_range']['start'] = '08:00'  # 北京时间8点
+          config['notification']['push_window']['time_range']['end'] = '10:00'   # 北京时间10点
+          
+          # 确保报告模式为daily
+          config['report']['mode'] = 'daily'
+          
+          with open('config/config.yaml', 'w', encoding='utf-8') as f:
+              yaml.dump(config, f, allow_unicode=True, default_flow_style=False)
+          
+          echo "✅ 时间配置已优化"
+          "
+
+      - name: 运行热点爬虫
+        env:
+          # 使用现有的邮箱配置
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM || '1249510763@qq.com' }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD || 'nvynsqarwowkbace' }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO || '1249510763@qq.com' }}
+          EMAIL_SMTP_SERVER: ${{ secrets.EMAIL_SMTP_SERVER || 'smtp.qq.com' }}
+          EMAIL_SMTP_PORT: ${{ secrets.EMAIL_SMTP_PORT || '465' }}
+          
+          # 其他通知配置（可选）
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DINGTALK_WEBHOOK_URL: ${{ secrets.DINGTALK_WEBHOOK_URL }}
+          WEWORK_WEBHOOK_URL: ${{ secrets.WEWORK_WEBHOOK_URL }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          NTFY_SERVER_URL: ${{ secrets.NTFY_SERVER_URL }}
+          NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
+          
+          # 启用GitHub Actions模式
+          GITHUB_ACTIONS: true
+          
+        run: |
+          echo "🚀 开始生成热点新闻报告..."
+          python main.py
+          echo "✅ 热点新闻报告生成完成"
+
+      - name: 生成AI增强摘要（可选）
+        if: success()
+        run: |
+          # 如果存在AI增强模块，则运行
+          if [ -f "simple_ai_report.py" ]; then
+            echo "🤖 生成AI增强摘要..."
+            python simple_ai_report.py || echo "⚠️ AI增强功能运行失败，但不影响主功能"
+          fi
+
+      - name: 上传报告和日志
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: daily-report-${{ github.run_number }}
+          path: |
+            output/
+            trendradar.log
+          retention-days: 7
+
+      - name: 清理旧报告
+        if: success()
+        run: |
+          # 清理7天前的报告文件
+          find output/ -name "*.html" -type f -mtime +7 -delete || true
+          find output/ -name "*.txt" -type f -mtime +7 -delete || true
+          echo "🧹 已清理旧报告文件"

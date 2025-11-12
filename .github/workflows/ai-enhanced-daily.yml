@@ -1,0 +1,73 @@
+name: 🤖 AI增强趋势报告定时发送
+
+on:
+  schedule:
+    # 每天 UTC 00:00 运行 (日本时间 9:00 AM)
+    - cron: '0 0 * * *'
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  send-ai-report:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Python环境
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+        
+    - name: 安装UV包管理器
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        
+    - name: 安装依赖
+      run: |
+        uv pip install --system -r requirements.txt
+        
+    - name: 更新邮件配置
+      run: |
+        # 创建临时配置文件用于GitHub Actions
+        mkdir -p config
+        cat > config/github_actions_config.yaml << EOF
+        email:
+          smtp_server: "${{ secrets.SMTP_SERVER || 'smtp.qq.com' }}"
+          smtp_port: ${{ secrets.SMTP_PORT || 587 }}
+          sender_email: "${{ secrets.SENDER_EMAIL }}"
+          sender_password: "${{ secrets.SENDER_PASSWORD }}"
+          recipient_email: "${{ secrets.RECIPIENT_EMAIL }}"
+          
+        ai_analysis:
+          enabled: true
+          summary_length: 800
+          include_trends: true
+          include_insights: true
+          include_predictions: true
+          
+        logging:
+          level: "INFO"
+          file: "trendradar.log"
+        EOF
+        
+    - name: 运行AI增强报告
+      run: |
+        python send_ai_report_email.py config/github_actions_config.yaml
+        
+    - name: 上传日志文件
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: trendradar-logs-${{ github.run_number }}
+        path: trendradar.log
+        retention-days: 7
+        
+    - name: 上传AI报告
+      if: success()
+      uses: actions/upload-artifact@v3
+      with:
+        name: ai-report-${{ github.run_number }}
+        path: output/ai_emails/*.html
+        retention-days: 7

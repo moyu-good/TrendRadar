@@ -1,0 +1,76 @@
+name: 📧 每日AI热点报告推送
+
+on:
+  schedule:
+    # 每天 UTC 00:00 运行 (北京时间 8:00 AM / 日本时间 9:00 AM)
+    - cron: '0 0 * * *'
+  workflow_dispatch:  # 允许手动触发测试
+
+jobs:
+  send-daily-report:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 获取代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Python环境
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+        cache: 'pip'  # 缓存pip依赖，加速构建
+        
+    - name: 安装依赖
+      run: |
+        pip install -r requirements.txt
+        
+    - name: 更新配置文件
+      run: |
+        # 使用GitHub Secrets更新邮件配置
+        python -c "
+        import yaml
+        import os
+        
+        # 读取现有配置
+        with open('config/config.yaml', 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        
+        # 更新邮件配置
+        config['notification']['webhooks']['email_from'] = os.environ.get('SENDER_EMAIL', '')
+        config['notification']['webhooks']['email_password'] = os.environ.get('SENDER_PASSWORD', '')
+        config['notification']['webhooks']['email_to'] = os.environ.get('RECIPIENT_EMAIL', '')
+        
+        # 确保推送时间窗口设置正确
+        config['notification']['push_window']['enabled'] = True
+        config['notification']['push_window']['once_per_day'] = True
+        config['notification']['push_window']['time_range']['start'] = '08:00'  # 北京时间
+        config['notification']['push_window']['time_range']['end'] = '09:00'    # 北京时间
+        
+        # 保存配置
+        with open('config/config.yaml', 'w', encoding='utf-8') as f:
+            yaml.dump(config, f, allow_unicode=True, default_flow_style=False)
+        "
+      env:
+        SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}
+        SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}
+        RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
+        
+    - name: 运行AI增强报告生成器
+      run: |
+        # 使用现有的main.py生成报告
+        python main.py
+        
+    - name: 发送AI增强邮件报告
+      run: |
+        python send_ai_report_email.py
+      continue-on-error: true  # 即使邮件发送失败也不影响整体状态
+      
+    - name: 上传运行日志
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: daily-report-logs-${{ github.run_number }}
+        path: |
+          trendradar.log
+          output/
+        retention-days: 7

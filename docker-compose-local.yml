@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  trend-radar:
+    build: .
+    container_name: trend-radar-local
+    restart: unless-stopped
+    
+    volumes:
+      - ./config:/app/config:ro
+      - ./output:/app/output
+      - ./mcp_server:/app/mcp_server
+      - ./main.py:/app/main.py
+      - ./requirements.txt:/app/requirements.txt
+
+    environment:
+      - TZ=Asia/Shanghai
+      # 核心配置
+      - ENABLE_CRAWLER=true
+      - ENABLE_NOTIFICATION=true
+      - REPORT_MODE=daily
+      # 推送时间窗口 - 日本时间9点 = 北京时间8点
+      - PUSH_WINDOW_ENABLED=true
+      - PUSH_WINDOW_START=08:00
+      - PUSH_WINDOW_END=08:30
+      - PUSH_WINDOW_ONCE_PER_DAY=true
+      - PUSH_WINDOW_RETENTION_DAYS=7
+      # 邮件配置
+      - EMAIL_FROM=1249510763@qq.com
+      - EMAIL_PASSWORD=nvynsqarwowkbace
+      - EMAIL_TO=1249510763@qq.com
+      - EMAIL_SMTP_SERVER=smtp.qq.com
+      - EMAIL_SMTP_PORT=465
+      # 运行模式 - 每天日本时间9点执行
+      - CRON_SCHEDULE=0 8 * * *
+      - RUN_MODE=cron
+      - IMMEDIATE_RUN=false
